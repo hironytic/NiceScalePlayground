@@ -1,7 +1,7 @@
 import UIKit
 import PlaygroundSupport
 
-// This class is based on written in https://stackoverflow.com/a/32226285/4313724
+// This class is based on the code written in https://stackoverflow.com/a/32226285/4313724
 class NiceScale {
     private var minPoint: Double
     private var maxPoint: Double
