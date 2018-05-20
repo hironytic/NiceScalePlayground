@@ -1,6 +1,66 @@
 import UIKit
 import PlaygroundSupport
 
+// This class is based written in https://stackoverflow.com/a/32226285/4313724
+class NiceScale {
+    private var minPoint: Double
+    private var maxPoint: Double
+    private var maxTicks = 10
+    private(set) var tickSpacing: Double = 0
+    private(set) var range: Double = 0
+    private(set) var niceMin: Double = 0
+    private(set) var niceMax: Double = 0
+    
+    init(min: Double, max: Double) {
+        minPoint = min
+        maxPoint = max
+        calculate()
+    }
+    
+    func setMinMaxPoints(min: Double, max: Double) {
+        minPoint = min
+        maxPoint = max
+        calculate()
+    }
+    
+    private func calculate() {
+        range = niceNum(maxPoint - minPoint, round: false)
+        tickSpacing = niceNum(range / Double((maxTicks - 1)), round: true)
+        niceMin = floor(minPoint / tickSpacing) * tickSpacing
+        niceMax = ceil(maxPoint / tickSpacing) * tickSpacing
+    }
+    
+    private func niceNum(_ range: Double, round: Bool) -> Double {
+        let exponent = floor(log10(range))
+        let fraction = range / pow(10, exponent)
+        let niceFraction: Double
+        
+        if round {
+            if fraction <= 1.5 {
+                niceFraction = 1
+            } else if fraction <= 3 {
+                niceFraction = 2
+            } else if fraction <= 7 {
+                niceFraction = 5
+            } else {
+                niceFraction = 10
+            }
+        } else {
+            if fraction <= 1 {
+                niceFraction = 1
+            } else if fraction <= 2 {
+                niceFraction = 2
+            } else if fraction <= 5 {
+                niceFraction = 5
+            } else {
+                niceFraction = 10
+            }
+        }
+        
+        return niceFraction * pow(10, exponent)
+    }
+}
+
 class ScaleView : UIView {
     required init?(coder aDecoder: NSCoder) { fatalError("not supported") }
     init() {
@@ -8,25 +68,75 @@ class ScaleView : UIView {
         isOpaque = false
     }
     
-    var minValue: Double = 0.0 {
+    var minValue: Double = 150.0 {
         didSet {
-            setNeedsDisplay()
+            update()
         }
     }
     var maxValue: Double = 500.0 {
         didSet {
-            setNeedsDisplay()
+            update()
+        }
+    }
+    
+    private var _isWaitingForUpdate = false
+    private func update() {
+        if !_isWaitingForUpdate {
+            _isWaitingForUpdate = true
+            DispatchQueue.main.asyncAfter(deadline: DispatchTime.now() + .seconds(1)) { [weak self] in
+                self?.setNeedsDisplay()
+                self?._isWaitingForUpdate = false
+            }
         }
     }
     
     override func draw(_ rect: CGRect) {
-        let path = UIBezierPath()
+        let area = CGRect(x: bounds.minX,
+                          y: bounds.minY + 20.0,
+                          width: bounds.width,
+                          height: bounds.height - 40.0)
         
         UIColor.black.setStroke()
-        path.lineWidth = 2
-        path.move(to: CGPoint(x: bounds.minX, y: 100))
-        path.addLine(to: CGPoint(x: bounds.maxX, y: 100))
+        drawLine(from: CGPoint(x: area.minX + 60.0, y: area.minY),
+                 to: CGPoint(x: area.minX + 60.0, y: area.maxY),
+                 width: 2)
+        
+        guard minValue < maxValue else { return }
+        
+        let niceScale = NiceScale(min: minValue, max: maxValue)
+        let factor = Double(area.maxY - area.minY) / (niceScale.niceMax - niceScale.niceMin)
+        drawTick(label: "\(niceScale.niceMin)", area: area, y: area.maxY)
+        var index = 1
+        while true {
+            let value = niceScale.niceMin + niceScale.tickSpacing * Double(index)
+            if value >= niceScale.niceMax {
+                break
+            }
+            drawTick(label: "\(value)", area: area, y: area.maxY - CGFloat((value - niceScale.niceMin) * factor))
+            index = index + 1
+        }
+        drawTick(label: "\(niceScale.niceMax)", area: area, y: area.minY)
+    }
+    
+    private func drawTick(label: String, area: CGRect, y: CGFloat) {
+        print("\(label) - \(y)")
+        UIColor.gray.setStroke()
+        drawLine(from: CGPoint(x: area.minX, y: y),
+                 to: CGPoint(x: area.maxX, y: y),
+                 width: 1)
+        (label as NSString).draw(at: CGPoint(x: area.minX, y: y - UIFont.systemFontSize - 2),
+                                 withAttributes: [
+                                    NSAttributedStringKey.font: UIFont.systemFont(ofSize: UIFont.systemFontSize),
+                                    NSAttributedStringKey.foregroundColor: UIColor.red,
+                                 ])
+    }
+
+    private func drawLine(from startPoint: CGPoint, to endPoint: CGPoint, width: CGFloat) {
+        let path = UIBezierPath()
+        path.move(to: startPoint)
+        path.addLine(to: endPoint)
         path.close()
+        path.lineWidth = width
         path.stroke()
     }
 }
@@ -47,7 +157,7 @@ class SliderView : UIView {
         let slider = UISlider(frame: CGRect.zero)
         slider.translatesAutoresizingMaskIntoConstraints = false
         slider.minimumValue = 0
-        slider.maximumValue = 10000
+        slider.maximumValue = 1000
         slider.value = Float(initialValue)
         slider.addTarget(self, action: #selector(valueChanged), for: .valueChanged)
         
@@ -55,7 +165,7 @@ class SliderView : UIView {
         
         let valueLabel = UILabel(frame: CGRect.zero)
         valueLabel.translatesAutoresizingMaskIntoConstraints = false
-        valueLabel.text = "\(initialValue)"
+        valueLabel.text = "\(Int(initialValue))"
         self.valueLabel = valueLabel
         
         addSubview(nameLabel)
@@ -81,8 +191,10 @@ class SliderView : UIView {
     @objc func valueChanged() {
         guard let valueLabel = valueLabel, let slider = slider else { return }
         
-        valueLabel.text = "\(slider.value)"
-        onValueChanged(Double(slider.value))
+        let value = floor(slider.value)
+        
+        valueLabel.text = "\(Int(value))"
+        onValueChanged(Double(value))
     }
 }
 
