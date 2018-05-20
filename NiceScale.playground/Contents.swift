@@ -79,14 +79,13 @@ class ScaleView : UIView {
         }
     }
     
-    private var _isWaitingForUpdate = false
+    private var _waitingForUpdateTimer: Timer? = nil
     private func update() {
-        if !_isWaitingForUpdate {
-            _isWaitingForUpdate = true
-            DispatchQueue.main.asyncAfter(deadline: DispatchTime.now() + .seconds(1)) { [weak self] in
-                self?.setNeedsDisplay()
-                self?._isWaitingForUpdate = false
-            }
+        if let timer = _waitingForUpdateTimer {
+            timer.invalidate()
+        }
+        _waitingForUpdateTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: false) { [weak self] _ in
+            self?.setNeedsDisplay()
         }
     }
     
