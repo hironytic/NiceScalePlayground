@@ -1,7 +1,7 @@
 import UIKit
 import PlaygroundSupport
 
-// This class is based written in https://stackoverflow.com/a/32226285/4313724
+// This class is based on written in https://stackoverflow.com/a/32226285/4313724
 class NiceScale {
     private var minPoint: Double
     private var maxPoint: Double
@@ -199,12 +199,15 @@ class SliderView : UIView {
 }
 
 class NiceScaleViewController : UIViewController {
+    weak var scaleView: ScaleView? = nil
+    
     override func viewDidLoad() {
         view.backgroundColor = .white
 
         let scaleView = ScaleView()
         scaleView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(scaleView)
+        self.scaleView = scaleView
 
         let controlPanelView = UIStackView(frame: CGRect.zero)
         controlPanelView.axis = .vertical
@@ -231,6 +234,10 @@ class NiceScaleViewController : UIViewController {
         let maxSliderView = SliderView(name: "max", initialValue: scaleView.maxValue)
         maxSliderView.onValueChanged = { scaleView.maxValue = $0 }
         controlPanelView.addArrangedSubview(maxSliderView)
+    }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        self.scaleView?.setNeedsDisplay()
     }
 }
 
